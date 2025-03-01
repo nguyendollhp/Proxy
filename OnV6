@@ -24,11 +24,11 @@ cat << 'EOF' | sudo tee /etc/motd
 #                                                                #
 ####################################################################
 #                                                                  #
-# Website: https://lowji194.github.io/                             #
+# Website: SHOPTOOLHP.COM                             #
 # Nếu mua tool RegProxy không giới hạn số lượng thì inbox cho mình #
-# Nguyễn Thế Lợi                                                   #
-# SĐT: 0963 159 294                                                #
-# Facebook: https://www.facebook.com/Lowji194/                     #
+# PHẠM THANH NGUYÊN                                                #
+# SĐT: 0378270000                                                  #
+# Facebook: https://www.facebook.com/nguyendollhp/                 #
 #                                                                  #
 ####################################################################
 EOF
