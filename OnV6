@@ -1,23 +1,92 @@
 #!/bin/bash
 
-# Lấy địa chỉ IPv6 đầu tiên có scope global
-ipv6=$(ip -6 addr show scope global | grep inet6 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
+# --------------------- PHẦN THÊM VÀO ---------------------
+# Nếu không truyền IPv6, tự động lấy địa chỉ inet6 scope global
+if [ -z "$1" ]; then
+    ipv6=$(ip -6 addr show scope global | grep inet6 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
+    if [ -z "$ipv6" ]; then
+        echo "❌ Không tìm thấy địa chỉ IPv6 (scope global)."
+        exit 1
+    fi
+    set -- "$ipv6"  # Gán lại vào $1 để giữ nguyên toàn bộ logic bên dưới
+fi
+# ---------------------------------------------------------
 
-# Nếu không có IPv6 thì thoát
-if [ -z "$ipv6" ]; then
-    echo "Không tìm thấy địa chỉ IPv6 nào (scope global)."
+# Đặt giá trị IPV6ADDR từ tham số đầu vào
+if [ -z "$1" ]; then
+    echo "Vui lòng cung cấp địa chỉ IPv6 làm tham số đầu vào."
     exit 1
 fi
 
-# Tự động tìm tên interface (ví dụ: ens3, eth0...)
-interface=$(ip -6 addr show scope global | grep -B1 "$ipv6" | head -n1 | awk -F: '{print $2}' | tr -d ' ')
+cat << 'EOF' | sudo tee /etc/motd
+####################################################################
+#        _   _   _   _   _   _   _   _   _   _   _   _   _   _    #
+#       | \ | |  _   _   _   _   _   _   _   _   _   _   _   _   #
+#       |  \| | | | | | | | | | | | | | | | | | | | | | | | | |  #
+#       | . ` | | | | | | | | | | | | | | | | | | | | | | | | |  #
+#       | |\  | | | | | | | | | | | | | | | | | | | | | | | | |  #
+#       |_| \_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_|  #
+#                                                                #
+#   ███╗   ██╗ ██████╗ ██╗   ██╗██╗   ██╗███████╗███╗   ██╗       #
+#   ████╗  ██║██╔═══██╗██║   ██║██║   ██║██╔════╝████╗  ██║       #
+#   ██╔██╗ ██║██║   ██║██║   ██║██║   ██║█████╗  ██╔██╗ ██║       #
+#   ██║╚██╗██║██║   ██║██║   ██║██║   ██║██╔══╝  ██║╚██╗██║       #
+#   ██║ ╚████║╚██████╔╝╚██████╔╝╚██████╔╝███████╗██║ ╚████║       #
+#   ╚═╝  ╚═══╝ ╚═════╝  ╚═════╝  ╚══════╝╚══════╝╚═╝  ╚═══╝       #
+#                                                                #
+####################################################################
+#                                                                  #
+# Website: SHOPTOOLHP.COM                             #
+# Nếu mua tool RegProxy không giới hạn số lượng thì inbox cho mình #
+# PHẠM THANH NGUYÊN                                                #
+# SĐT: 0378270000                                                  #
+# Facebook: https://www.facebook.com/nguyendollhp/                 #
+#                                                                  #
+####################################################################
+EOF
 
-echo "Đang cấu hình IPv6: $ipv6 trên interface: $interface"
+IPV6ADDR="$1"
+IPV6_DEFAULTGW=$(echo "$IPV6ADDR" | sed 's/::[a-fA-F0-9]*/::1/')
 
-# Thêm địa chỉ IPv6 vào interface
-ip addr add $ipv6/64 dev $interface
+# Lấy tên interface mạng
+Eth=$(ip addr show | grep -E '^2:' | sed 's/^[0-9]*: \(.*\):.*/\1/')
 
-# (Tuỳ chọn) Thêm default route nếu cần (nếu bạn biết cổng gateway)
-# ip -6 route add default via <GATEWAY> dev $interface
+# Thêm /64 nếu chưa có
+if [[ ! "$IPV6ADDR" =~ /64$ ]]; then
+    IPV6ADDR="${IPV6ADDR}/64"
+fi
 
-echo "✅ Cấu hình IPv6 hoàn tất."
+CONFIG_FILE="/etc/sysconfig/network-scripts/ifcfg-${Eth}"
+
+# Cập nhật hoặc thêm cấu hình vào tệp
+if grep -q "Write=true" "$CONFIG_FILE"; then
+    # Thay thế các dòng IPV6ADDR và IPV6_DEFAULTGW với giá trị mới
+    sed -i "s|^IPV6ADDR=.*|IPV6ADDR=$IPV6ADDR|" "$CONFIG_FILE"
+    sed -i "s|^IPV6_DEFAULTGW=.*|IPV6_DEFAULTGW=$IPV6_DEFAULTGW|" "$CONFIG_FILE"
+else
+    echo "Write=true
+IPV6_FAILURE_FATAL=no
+IPV6_ADDR_GEN_MODE=stable-privacy
+IPV6ADDR=$IPV6ADDR
+IPV6_DEFAULTGW=$IPV6_DEFAULTGW" >> "$CONFIG_FILE"
+fi
+
+# Khởi động lại dịch vụ mạng
+if [ -f /etc/almalinux-release ]; then
+    sudo systemctl restart NetworkManager
+else
+    service network restart
+fi
+sleep 3
+
+# Kiểm tra kết nối mạng IPv6
+ping6 google.com -c4
+echo " "
+
+IP=$(curl -6 -s icanhazip.com)
+if [ -n "$IP" ]; then
+    echo "Bật IPv6 thành công: $IP" 
+else
+    echo "Thất bại kiểm tra lại IP, VPS hoặc liên hệ Cloudfly" 
+fi
+echo " "
