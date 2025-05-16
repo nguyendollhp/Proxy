@@ -3,7 +3,7 @@
 # --------------------- PHẦN THÊM VÀO ---------------------
 # Nếu không truyền IPv6, tự động lấy địa chỉ inet6 scope global
 if [ -z "$1" ]; then
-    ipv6=$(ip -6 addr show scope global | grep inet6 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
+    ipv6=$(ip -6 addr show | grep 'inet6' | grep -v 'fe80' | awk '{print $2}' | cut -d/ -f1 | head -n 1)
     if [ -z "$ipv6" ]; then
         echo "❌ Không tìm thấy địa chỉ IPv6 (scope global)."
         exit 1
